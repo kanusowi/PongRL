@@ -1,0 +1,3 @@
+# Core game and numerical ops
+pygame
+numpy
