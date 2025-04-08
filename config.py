@@ -9,3 +9,8 @@ WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
+
+# Paddle settings
+PADDLE_WIDTH = 15
+PADDLE_HEIGHT = 100
+PADDLE_SPEED = 7
