@@ -1,7 +1,7 @@
 import pygame
 import sys
 from config import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, WHITE, BLACK, RED
-from game.paddle import Paddle # Import Paddle class
+from game.paddle import Paddle
 
 def game_loop():
     pygame.init()
@@ -9,11 +9,9 @@ def game_loop():
     pygame.display.set_caption("Pong RL")
     clock = pygame.time.Clock()
 
-    # Create paddles
-    # Position paddles slightly off the edges, centered vertically
-    # Using Paddle.PADDLE_WIDTH assumes it's a class attribute or defined in module scope
     player_paddle = Paddle(30, SCREEN_HEIGHT // 2, WHITE)
-    opponent_paddle = Paddle(SCREEN_WIDTH - 30 - 15, SCREEN_HEIGHT // 2, RED) # Hardcode width for now if not class attr
+    # Use the class attribute for width if available, otherwise config or hardcoded
+    opponent_paddle = Paddle(SCREEN_WIDTH - 30 - Paddle.PADDLE_WIDTH_CLASS_ATTR, SCREEN_HEIGHT // 2, RED)
 
     running = True
     while running:
@@ -24,13 +22,19 @@ def game_loop():
                 if event.key == pygame.K_ESCAPE:
                     running = False
 
-        # Game logic updates would go here
+        # Player paddle movement based on W/S keys
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_w]:
+            player_paddle.move(direction=-1) # Move up
+        if keys[pygame.K_s]:
+            player_paddle.move(direction=1)  # Move down
+
+        # Game logic updates (opponent AI, ball movement etc. later)
 
         # Drawing
         screen.fill(BLACK)
         player_paddle.draw(screen)
         opponent_paddle.draw(screen)
-        # Other game elements drawing would go here
 
         pygame.display.flip()
         clock.tick(FPS)
