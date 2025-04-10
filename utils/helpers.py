@@ -1,31 +1,24 @@
-# utils/helpers.py
-
-"""
-Placeholder for utility functions that might be useful across the project.
-For example:
-- Custom plotting functions beyond the basic one in train.py.
-- Specific data preprocessing or transformation routines if needed for more complex states.
-- Functions for managing seeds or environment configurations globally.
-"""
-
 import numpy as np
+import random
 import torch
 
-def set_global_seeds(seed):
-    """Sets random seeds for major libraries to ensure reproducibility."""
-    np.random.seed(seed)
-    random.seed(seed) # Python's built-in random
-    torch.manual_seed(seed)
+def set_global_seeds(seed_value):
+    np.random.seed(seed_value)  # NumPy
+    random.seed(seed_value)     # Python
+    torch.manual_seed(seed_value) # PyTorch
+    
     if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed) # For multi-GPU setups
-        # Potentially add cudnn determinism flags, but they can slow down training
+        torch.cuda.manual_seed_all(seed_value) # Seed for CUDA
+        # For potentially greater (but possibly slower) reproducibility with CUDA:
         # torch.backends.cudnn.deterministic = True
         # torch.backends.cudnn.benchmark = False
-
-def example_utility_function():
-    print("This is an example utility function from utils.helpers.")
+    print(f"Global seeds set to: {seed_value}")
 
 if __name__ == '__main__':
-    set_global_seeds(42)
-    example_utility_function()
-    print("Seeds set and example utility ran.")
+    set_global_seeds(42)    
+    print(f"NumPy random float (post-seeding): {np.random.rand()}")
+    print(f"Python random int (post-seeding): {random.randint(0, 100)}")
+    if torch.cuda.is_available():
+        print(f"PyTorch CUDA random tensor (example, post-seeding): {torch.cuda.FloatTensor(1).normal_()}")
+    else:
+        print(f"PyTorch CPU random tensor (example, post-seeding): {torch.FloatTensor(1).normal_()}")
