@@ -37,7 +37,8 @@ class PongEnv:
     def _get_obs(self):
         ball_x_norm = (self.ball.rect.centerx - self.screen_width / 2) / (self.screen_width / 2)
         ball_y_norm = (self.ball.rect.centery - self.screen_height / 2) / (self.screen_height / 2)
-        ball_vx_norm = np.clip(self.ball.velocity_x / (BALL_BASE_SPEED_X * 2), -1, 1) 
+        
+        ball_vx_norm = np.clip(self.ball.velocity_x / (BALL_BASE_SPEED_X * 2), -1, 1)
         ball_vy_norm = np.clip(self.ball.velocity_y / (BALL_BASE_SPEED_Y * 2), -1, 1)
         
         player_paddle_y_norm = (self.player_paddle.rect.centery - self.screen_height / 2) / (self.screen_height / 2)
@@ -49,7 +50,6 @@ class PongEnv:
             player_paddle_y_norm,
             opponent_paddle_y_norm
         ]
-
         return np.array(obs, dtype=np.float32)
 
     def _get_info(self):
@@ -58,9 +58,10 @@ class PongEnv:
     def reset(self, seed=None, options=None):
         if seed is not None:
             random.seed(seed)
+
         self.player_paddle.reset_position(self.screen_height // 2)
         self.opponent_paddle.reset_position(self.screen_height // 2)
-        self.ball.reset_ball(direction_to_serve=random.choice((1, -1))) 
+        self.ball.reset_ball(direction_to_serve=random.choice((1, -1)))
         self.player_score = 0
         self.opponent_score = 0
         
@@ -87,28 +88,31 @@ class PongEnv:
             self.player_paddle.move(direction=1)
         if self.human_opponent:
             self._handle_opponent_input()
-        else: # ai opp
-            dead_zone = self.opponent_paddle.rect.height * 0.1 # should help with jitter
-            original_opponent_speed = self.opponent_paddle.speed
-            self.opponent_paddle.speed = self.opponent_ai_speed # opp speed (AI)
+        else: #ai
+            dead_zone = self.opponent_paddle.rect.height * 0.1 
+            original_opponent_speed = self.opponent_paddle.speed 
+            self.opponent_paddle.speed = self.opponent_ai_speed 
+
             if self.opponent_paddle.rect.centery < self.ball.rect.centery - dead_zone:
-                self.opponent_paddle.move(direction=1)
+                self.opponent_paddle.move(direction=1) # Move down
             elif self.opponent_paddle.rect.centery > self.ball.rect.centery + dead_zone:
-                self.opponent_paddle.move(direction=-1)
+                self.opponent_paddle.move(direction=-1) # Move up
+            
             self.opponent_paddle.speed = original_opponent_speed
+
         self.ball.update(self.player_paddle, self.opponent_paddle)
 
         reward = 0.0
         terminated = False
 
-        if self.ball.rect.left <= 0:
+        if self.ball.rect.left <= 0: 
             self.opponent_score += 1
-            reward = -1.0
+            reward = -1.0 
             self.ball.reset_ball(direction_to_serve=1)
-            terminated = True 
-
+            terminated = True
+        elif self.ball.rect.right >= self.screen_width: 
             self.player_score += 1
-            reward = 1.0
+            reward = 1.0 
             self.ball.reset_ball(direction_to_serve=-1)
             terminated = True
             
