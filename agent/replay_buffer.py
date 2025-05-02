@@ -9,8 +9,8 @@ class ReplayBuffer:
         self.batch_size = batch_size
         self.experience = namedtuple("Experience", field_names=["state", "action", "reward", "next_state", "done"])
         
-        random.seed(seed) 
-        # np.random.seed(seed)
+        random.seed(seed)
+        # np.random.seed(seed) # if using NumPy for any random operations within the buffer
         
         self.device = device
 
@@ -24,16 +24,13 @@ class ReplayBuffer:
 
     def sample(self):
         if len(self.memory) < self.batch_size:
-            return None # not enough experiences to sample a full batch
-            
+            return None        
         experiences = random.sample(self.memory, k=self.batch_size)
-
-        # [numpy vals] -> PyTorch tensors
-        states = torch.from_numpy(np.vstack([e.state for e in experiences if e is not None])).float().to(self.device)
-        actions = torch.from_numpy(np.vstack([e.action for e in experiences if e is not None])).long().to(self.device)
-        rewards = torch.from_numpy(np.vstack([e.reward for e in experiences if e is not None])).float().to(self.device)
-        next_states = torch.from_numpy(np.vstack([e.next_state for e in experiences if e is not None])).float().to(self.device)
-        dones = torch.from_numpy(np.vstack([e.done for e in experiences if e is not None]).astype(np.uint8)).float().to(self.device)
+        states = torch.from_numpy(np.vstack([e.state for e in experiences])).float().to(self.device)
+        actions = torch.from_numpy(np.vstack([e.action for e in experiences])).long().to(self.device) # Actions are usually indices, so long type
+        rewards = torch.from_numpy(np.vstack([e.reward for e in experiences])).float().to(self.device)
+        next_states = torch.from_numpy(np.vstack([e.next_state for e in experiences])).float().to(self.device)
+        dones = torch.from_numpy(np.vstack([e.done for e in experiences]).astype(np.uint8)).float().to(self.device)
   
         return (states, actions, rewards, next_states, dones)
 
