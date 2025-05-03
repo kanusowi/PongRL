@@ -69,5 +69,16 @@ class Ball(pygame.sprite.Sprite):
 
                     break
 
+    def reset_ball(self, direction_to_serve=None):
+        self.rect.centerx = SCREEN_WIDTH // 2
+        self.rect.centery = SCREEN_HEIGHT // 2
+        self.current_speed_x_magnitude = self.base_speed_x 
+        
+        if direction_to_serve is None:
+            direction_to_serve = random.choice((1, -1))
+            
+        self.velocity_x = self.current_speed_x_magnitude * direction_to_serve
+        self.velocity_y = self.base_speed_y * random.choice((1, -1)) * random.uniform(0.7, 1.3)
+
     def draw(self, screen):
         screen.blit(self.image, self.rect)
