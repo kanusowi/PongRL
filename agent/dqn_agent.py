@@ -105,3 +105,21 @@ class DQNAgent():
             print(f"Agent model saved to {filepath}")
         else:
             print("Error: Q-network local is not initialized. Cannot save model.")
+
+    def load_model(self, filename=DEFAULT_MODEL_NAME):
+        filepath = os.path.join(MODEL_SAVE_DIR, filename)
+        if not os.path.exists(filepath):
+            print(f"Error: Model file not found at {filepath}. Cannot load model.")
+            return
+        map_loc = device
+        
+        try:
+            if self.qnetwork_local:
+                self.qnetwork_local.load_state_dict(torch.load(filepath, map_location=map_loc))
+                self.qnetwork_local.train()
+            if self.qnetwork_target:
+                self.qnetwork_target.load_state_dict(torch.load(filepath, map_location=map_loc))
+                self.qnetwork_target.eval()
+            print(f"Agent model loaded from {filepath}")
+        except Exception as e:
+            print(f"Error loading model weights from {filepath}: {e}")
