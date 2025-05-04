@@ -90,3 +90,18 @@ class DQNAgent():
 
     def update_epsilon(self):
         self.epsilon = max(self.eps_end, self.epsilon * self.eps_decay)
+            
+    def soft_update(self, local_model, target_model, tau_val):
+        for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
+            target_param.data.copy_(tau_val*local_param.data + (1.0-tau_val)*target_param.data)
+
+    def save_model(self, filename=DEFAULT_MODEL_NAME):
+        if not os.path.exists(MODEL_SAVE_DIR):
+            os.makedirs(MODEL_SAVE_DIR)
+        filepath = os.path.join(MODEL_SAVE_DIR, filename)
+        
+        if self.qnetwork_local:
+            torch.save(self.qnetwork_local.state_dict(), filepath)
+            print(f"Agent model saved to {filepath}")
+        else:
+            print("Error: Q-network local is not initialized. Cannot save model.")
