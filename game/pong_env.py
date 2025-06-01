@@ -1,4 +1,3 @@
-# game/pong_env.py
 import pygame
 import numpy as np
 import random
