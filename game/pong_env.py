@@ -1,48 +1,56 @@
+# game/pong_env.py
 import pygame
 import numpy as np
 import random
-from config import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, WHITE, BLACK, RED, BALL_SPEED_X, BALL_SPEED_Y # Import speeds for obs normalization
-from .paddle import Paddle   # Relative import
-from .ball import Ball     # Relative import
+from config import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, WHITE, BLACK, RED, GRAY, PADDLE_OFFSET, BALL_BASE_SPEED_X, BALL_BASE_SPEED_Y, UI_FONT_TYPE, UI_FONT_SIZE_SCORE)
+from .paddle import Paddle
+from .ball import Ball
 
 class PongEnv:
-    def __init__(self, render_mode=None):
+    def __init__(self, render_mode=None, human_opponent=False, opponent_speed_factor=0.8):
         pygame.init()
-        pygame.font.init() # Initialize font module if drawing text
+        pygame.font.init()
 
         self.screen_width = SCREEN_WIDTH
         self.screen_height = SCREEN_HEIGHT
         self.fps = FPS
-
         self.screen = None
-        if render_mode == 'human':
-            self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
-            pygame.display.set_caption("Pong Env RL")
-
-        self.clock = pygame.time.Clock()
-
-        # Game objects
-        self.player_paddle = Paddle(30, self.screen_height // 2, WHITE)
-        self.opponent_paddle = Paddle(self.screen_width - 30 - Paddle.PADDLE_WIDTH_CLASS_ATTR, self.screen_height // 2, RED)
-        self.ball = Ball(self.screen_width // 2, self.screen_height // 2) # Ball.py must exist
-
-        self.player_score = 0
-        self.opponent_score = 0
         self.render_mode = render_mode
 
-        # For RL agent: action space (0: Stay, 1: Up, 2: Down for player paddle)
-        self.action_space_n = 3
+        if self.render_mode == 'human':
+            self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
+            pygame.display.set_caption("Pong RL Environment")
+        
+        self.clock = pygame.time.Clock()
+        self.player_paddle = Paddle(PADDLE_OFFSET, self.screen_height // 2, WHITE)
+        self.opponent_paddle = Paddle(self.screen_width - PADDLE_OFFSET - Paddle.WIDTH, self.screen_height // 2, RED)
+        self.ball = Ball(self.screen_width // 2, self.screen_height // 2)
+        self.player_score = 0
+        self.opponent_score = 0
+        self.human_opponent = human_opponent
+        self.opponent_ai_speed = int(self.opponent_paddle.speed * opponent_speed_factor)
+        self.action_space_n = 3 
+
+        dummy_obs, _ = self.reset()
+        self.observation_space_shape = dummy_obs.shape
+
 
     def _get_obs(self):
-        # Normalize observations to be roughly between -1 and 1 or 0 and 1
+        ball_x_norm = (self.ball.rect.centerx - self.screen_width / 2) / (self.screen_width / 2)
+        ball_y_norm = (self.ball.rect.centery - self.screen_height / 2) / (self.screen_height / 2)
+        ball_vx_norm = np.clip(self.ball.velocity_x / (BALL_BASE_SPEED_X * 2), -1, 1) 
+        ball_vy_norm = np.clip(self.ball.velocity_y / (BALL_BASE_SPEED_Y * 2), -1, 1)
+        
+        player_paddle_y_norm = (self.player_paddle.rect.centery - self.screen_height / 2) / (self.screen_height / 2)
+        opponent_paddle_y_norm = (self.opponent_paddle.rect.centery - self.screen_height / 2) / (self.screen_height / 2)
+        
         obs = [
-            (self.ball.rect.centerx - self.screen_width / 2) / (self.screen_width / 2),
-            (self.ball.rect.centery - self.screen_height / 2) / (self.screen_height / 2),
-            self.ball.velocity_x / BALL_SPEED_X, # Assumes BALL_SPEED_X is max typical speed
-            self.ball.velocity_y / BALL_SPEED_Y, # Assumes BALL_SPEED_Y is max typical speed
-            (self.player_paddle.rect.centery - self.screen_height / 2) / (self.screen_height / 2),
-            (self.opponent_paddle.rect.centery - self.screen_height / 2) / (self.screen_height / 2)
+            ball_x_norm, ball_y_norm,
+            ball_vx_norm, ball_vy_norm,
+            player_paddle_y_norm,
+            opponent_paddle_y_norm
         ]
+
         return np.array(obs, dtype=np.float32)
 
     def _get_info(self):
@@ -50,110 +58,118 @@ class PongEnv:
 
     def reset(self, seed=None, options=None):
         if seed is not None:
-            random.seed(seed) # For consistent ball serves etc.
-            # np.random.seed(seed) # If using numpy randomness for other parts
-
-        # Reset paddle positions
-        self.player_paddle.rect.centery = self.screen_height // 2
-        self.opponent_paddle.rect.centery = self.screen_height // 2
-        # Reset ball (Ball class needs reset_ball method)
-        self.ball.reset_ball(direction=random.choice((1, -1)))
-
+            random.seed(seed)
+        self.player_paddle.reset_position(self.screen_height // 2)
+        self.opponent_paddle.reset_position(self.screen_height // 2)
+        self.ball.reset_ball(direction_to_serve=random.choice((1, -1))) 
         self.player_score = 0
         self.opponent_score = 0
-
+        
         observation = self._get_obs()
         info = self._get_info()
-
-        if self.render_mode == "human":
-            self._render_frame() # Render initial state
-
-        return observation, info # Gym-like return
-
-    def step(self, action):
-        # Player action
-        if action == 1: # Up
-            self.player_paddle.move(direction=-1)
-        elif action == 2: # Down
-            self.player_paddle.move(direction=1)
-        # action == 0 is "stay still"
-
-        # Opponent AI (simple: follows ball's y position with a deadzone)
-        dead_zone = 5 # To prevent jittering
-        if self.opponent_paddle.rect.centery < self.ball.rect.centery - dead_zone:
-            self.opponent_paddle.move(direction=1) # move down
-        elif self.opponent_paddle.rect.centery > self.ball.rect.centery + dead_zone:
-            self.opponent_paddle.move(direction=-1) # move up
-
-        # Ball update (Ball class needs update method taking paddles for collision)
-        self.ball.update(self.player_paddle, self.opponent_paddle)
-
-        reward = 0.0 # Use float for rewards
-        terminated = False # True if an episode ends (e.g., point scored)
-
-        # Scoring logic
-        if self.ball.rect.left <= 0: # Opponent scores
-            self.opponent_score += 1
-            reward = -1.0
-            self.ball.reset_ball(direction=1) # Serve to player
-            terminated = True
-        if self.ball.rect.right >= self.screen_width: # Player scores
-            self.player_score += 1
-            reward = 1.0
-            self.ball.reset_ball(direction=-1) # Serve to opponent
-            terminated = True
-
-        observation = self._get_obs()
-        info = self._get_info()
-
+        
         if self.render_mode == "human":
             self._render_frame()
-            self.clock.tick(self.fps) # Control game speed when rendering for humans
 
-        # Gym-like return: obs, reward, terminated, truncated, info
-        return observation, reward, terminated, False, info # False for truncated (not used here)
+        return observation, info
+
+    def _handle_opponent_input(self):
+        if not self.human_opponent: return
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_UP]:
+            self.opponent_paddle.move(direction=-1)
+        if keys[pygame.K_DOWN]:
+            self.opponent_paddle.move(direction=1)
+
+    def step(self, action):
+        if action == 1:  # Up
+            self.player_paddle.move(direction=-1)
+        elif action == 2:  # Down
+            self.player_paddle.move(direction=1)
+        if self.human_opponent:
+            self._handle_opponent_input()
+        else: # ai opp
+            dead_zone = self.opponent_paddle.rect.height * 0.1 # should help with jitter
+            original_opponent_speed = self.opponent_paddle.speed
+            self.opponent_paddle.speed = self.opponent_ai_speed # opp speed (AI)
+            if self.opponent_paddle.rect.centery < self.ball.rect.centery - dead_zone:
+                self.opponent_paddle.move(direction=1)
+            elif self.opponent_paddle.rect.centery > self.ball.rect.centery + dead_zone:
+                self.opponent_paddle.move(direction=-1)
+            self.opponent_paddle.speed = original_opponent_speed
+        self.ball.update(self.player_paddle, self.opponent_paddle)
+
+        reward = 0.0
+        terminated = False
+
+        if self.ball.rect.left <= 0:
+            self.opponent_score += 1
+            reward = -1.0
+            self.ball.reset_ball(direction_to_serve=1)
+            terminated = True 
+
+            self.player_score += 1
+            reward = 1.0
+            self.ball.reset_ball(direction_to_serve=-1)
+            terminated = True
+            
+        observation = self._get_obs()
+        info = self._get_info()
+        
+        if self.render_mode == "human":
+            self._handle_pygame_events()
+            if self.screen:
+                self._render_frame()
+                self.clock.tick(self.fps)
+
+        return observation, reward, terminated, False, info
+
+    def _handle_pygame_events(self):
+        if not self.render_mode == 'human' or not self.screen:
+            return
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.close()
 
     def _render_frame(self):
-        if self.screen is None and self.render_mode == "human": # Initialize screen if not done
-            self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
-            pygame.display.set_caption("Pong Env RL")
-
-        if self.screen is None: return # Do nothing if no screen (e.g. training mode)
-
+        if self.screen is None: return
         self.screen.fill(BLACK)
-        # Draw center line
-        for i in range(0, self.screen_height, 25): # Dashed line
-            pygame.draw.rect(self.screen, WHITE, (self.screen_width // 2 - 2, i, 4, 15)) # Thicker line
-
+        line_width = 4
+        dash_height = 15
+        gap_height = 10
+        current_y = 0
+        while current_y < self.screen_height:
+            pygame.draw.rect(self.screen, GRAY, (self.screen_width // 2 - line_width // 2, current_y, line_width, dash_height))
+            current_y += dash_height + gap_height
+        
+        # DRAW objects
         self.player_paddle.draw(self.screen)
         self.opponent_paddle.draw(self.screen)
         self.ball.draw(self.screen)
+        
+        # DRAW scores
+        self._draw_text(f"{self.player_score}", UI_FONT_SIZE_SCORE, self.screen_width // 4, 20, WHITE)
+        self._draw_text(f"{self.opponent_score}", UI_FONT_SIZE_SCORE, self.screen_width * 3 // 4, 20, WHITE)
 
-        # Draw scores
-        self._draw_text(f"Player: {self.player_score}", 36, self.screen_width // 4, 10)
-        self._draw_text(f"Opponent: {self.opponent_score}", 36, self.screen_width * 3 // 4, 10)
+        pygame.display.flip() 
 
-        pygame.display.flip()
-
-        # Handle Pygame events when rendering (e.g., to close window)
-        # This is important to prevent the window from becoming unresponsive
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.close() # Signal that the window was closed
-
-    def _draw_text(self, text, size, x, y, color=WHITE):
-        if not pygame.font.get_init(): pygame.font.init() # Ensure font module is ready
-        # Consider using a specific font file for consistency: pygame.font.Font("path/to/font.ttf", size)
-        font = pygame.font.Font(pygame.font.match_font('arial'), size)
+    def _draw_text(self, text, size, x, y, color=WHITE, font_type=UI_FONT_TYPE):
+        if not pygame.font.get_init(): pygame.font.init()
+        try:
+            font = pygame.font.Font(font_type, size)
+        except FileNotFoundError:
+            font = pygame.font.Font(pygame.font.match_font(font_type.lower()), size) 
         text_surface = font.render(text, True, color)
         text_rect = text_surface.get_rect()
-        text_rect.midtop = (x, y) # Position by mid-top
-        if self.screen: # Check if screen exists before drawing
+        text_rect.midtop = (x, y)        
+        if self.screen:
             self.screen.blit(text_surface, text_rect)
 
     def close(self):
         if self.screen is not None:
             pygame.display.quit()
-            pygame.font.quit() # Important to quit font module
-            pygame.quit()      # Quit all pygame modules
-            self.screen = None # Mark screen as closed
+            self.screen = None 
+        if pygame.get_init(): 
+            if pygame.font.get_init():
+                pygame.font.quit()
+            pygame.quit()

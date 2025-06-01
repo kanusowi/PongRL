@@ -1,33 +1,32 @@
 import pygame
-from config import WHITE, SCREEN_HEIGHT, PADDLE_SPEED, PADDLE_HEIGHT, PADDLE_WIDTH # Use from config
-
+from config import WHITE, SCREEN_HEIGHT, PADDLE_SPEED, PADDLE_HEIGHT, PADDLE_WIDTH
 class Paddle(pygame.sprite.Sprite):
-    PADDLE_WIDTH_CLASS_ATTR = PADDLE_WIDTH  # Make accessible as class attribute
-    PADDLE_HEIGHT_CLASS_ATTR = PADDLE_HEIGHT # Make accessible as class attribute
+    WIDTH = PADDLE_WIDTH
+    HEIGHT = PADDLE_HEIGHT
 
-    def __init__(self, x, y_center, color=WHITE):
+    def __init__(self, x, initial_y_center, color=WHITE):
         super().__init__()
-        self.image = pygame.Surface([PADDLE_WIDTH, PADDLE_HEIGHT]) # Use module/config const
+
+        self.image = pygame.Surface([PADDLE_WIDTH, PADDLE_HEIGHT])
         self.image.fill(color)
         self.rect = self.image.get_rect()
+
         self.rect.x = x
-        self.rect.centery = y_center
-        self.speed = PADDLE_SPEED # Use module/config const
+        self.rect.centery = initial_y_center
+        self.speed = PADDLE_SPEED
 
     def move(self, direction):
-        """Moves the paddle up or down.
-        direction: 1 for down, -1 for up.
-        """
-        if direction == 1: # Move down
+        if direction == 1:  # down
             self.rect.y += self.speed
-        elif direction == -1: # Move up
+        elif direction == -1:  # up
             self.rect.y -= self.speed
-
-        # Keep paddle on screen (boundary check)
         if self.rect.top < 0:
             self.rect.top = 0
-        if self.rect.bottom > SCREEN_HEIGHT: # Use config const
+        if self.rect.bottom > SCREEN_HEIGHT:
             self.rect.bottom = SCREEN_HEIGHT
+
+    def reset_position(self, y_center):
+        self.rect.centery = y_center
 
     def draw(self, screen):
         screen.blit(self.image, self.rect)
